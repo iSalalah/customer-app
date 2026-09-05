@@ -121,8 +121,16 @@ environment and never returned by the API.
 
 ## Documentation
 
+**New to this project? Start here:**
+[docs/system-profile-ar.html](docs/system-profile-ar.html) — a self-contained
+Arabic briefing covering purpose, features, roles, request lifecycle,
+architecture, security limits, what still needs completing, and a proposed
+evaluation plan with the report expected back. Open it directly in a browser; it
+needs no server and loads nothing external.
+
 | Document | Contents |
 |---|---|
+| [docs/system-profile-ar.html](docs/system-profile-ar.html) | **الملف التعريفي والتقييم الفني** — briefing and evaluation plan for an incoming developer (Arabic) |
 | [docs/00-tree.md](docs/00-tree.md) | Full directory tree |
 | [docs/01-assumptions.md](docs/01-assumptions.md) | Contradictions resolved and defaults chosen, with reasons |
 | [docs/02-architecture.md](docs/02-architecture.md) | Layering and Mermaid flow diagrams |
