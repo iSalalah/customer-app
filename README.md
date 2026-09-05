@@ -72,6 +72,11 @@ them), then:
 npm install
 ```
 
+`npm install` also generates the Prisma client (`postinstall`), so `npm test`
+and `npm run build` work straight after a clone. The unit suites run with no
+database; the integration suites skip with a printed notice until you set
+`TEST_DATABASE_URL` and `TEST_REDIS_URL`.
+
 ```bash
 docker compose up -d mysql redis
 ```

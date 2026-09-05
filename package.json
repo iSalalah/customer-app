@@ -14,6 +14,7 @@
     "apps/*"
   ],
   "scripts": {
+    "postinstall": "prisma generate --schema apps/api/prisma/schema.prisma",
     "dev": "npm-run-all --parallel dev:api dev:kiosk dev:admin",
     "dev:api": "npm run dev --workspace @dhofar/api",
     "dev:kiosk": "npm run dev --workspace @dhofar/kiosk",
