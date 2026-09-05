@@ -1,0 +1,17 @@
+{
+  "name": "@dhofar/shared",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Constants, status rules and validation primitives shared by the API and both SPAs",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./*": "./src/*.js"
+  },
+  "sideEffects": false,
+  "files": ["src"],
+  "scripts": {
+    "lint": "eslint src"
+  }
+}

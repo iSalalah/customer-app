@@ -1,0 +1,39 @@
+node_modules/
+dist/
+build/
+coverage/
+.vite/
+
+# Secrets - only .env.example is committed.
+# The *env* patterns are deliberately broad: a file such as `.test-env` holding a
+# real database URL nearly slipped into the first commit, and it matched none of
+# the narrower rules.
+.env
+.env.*
+*.env
+*env.local
+.test-env
+!.env.example
+!apps/*/.env.example
+
+# Uploaded citizen documents must never enter version control
+var/
+uploads/
+apps/api/var/
+
+# Logs & runtime
+*.log
+npm-debug.log*
+pids/
+*.pid
+
+# Prisma generated client
+node_modules/.prisma/
+apps/api/prisma/generated/
+
+# Editors / OS
+.idea/
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db

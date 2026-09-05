@@ -1,0 +1,635 @@
+@import './tokens.css';
+@import './rtl.css';
+@import './print.css';
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--c-bg);
+  color: var(--c-text);
+  font-family: var(--font-en);
+  font-size: var(--fs-base);
+  line-height: 1.65;
+  /* A kiosk has no text selection use case and selection invites smudging. */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html[dir='rtl'] body {
+  font-family: var(--font-ar);
+}
+
+/* Inputs are the one place selection must work. */
+input,
+textarea {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0 0 var(--sp-2);
+  line-height: 1.3;
+  font-weight: 700;
+}
+
+h1 {
+  font-size: var(--fs-2xl);
+}
+h2 {
+  font-size: var(--fs-xl);
+}
+h3 {
+  font-size: var(--fs-lg);
+}
+
+p {
+  margin: 0 0 var(--sp-3);
+}
+
+/*
+ * Focus. A visible, high-contrast ring on every focusable element - a kiosk may
+ * be driven by an assistive switch or an external keypad, and an invisible focus
+ * makes it unusable.
+ */
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 4px solid var(--c-focus);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+.skip-link {
+  position: absolute;
+  inset-inline-start: var(--sp-3);
+  top: -100px;
+  z-index: 100;
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--c-primary);
+  color: var(--c-text-inverse);
+  border-radius: var(--radius);
+  transition: top 0.15s ease;
+}
+
+.skip-link:focus {
+  top: var(--sp-3);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* --- Layout -------------------------------------------------------------- */
+
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.app__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--c-primary);
+  color: var(--c-text-inverse);
+  box-shadow: var(--shadow-sm);
+}
+
+.app__brand {
+  display: flex;
+  flex-direction: column;
+}
+
+.app__brand-title {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+}
+
+.app__brand-subtitle {
+  font-size: var(--fs-xs);
+  opacity: 0.9;
+}
+
+.app__header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.app__main {
+  flex: 1;
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: var(--sp-4);
+}
+
+.app__footer {
+  padding: var(--sp-2) var(--sp-4);
+  background: var(--c-surface-alt);
+  color: var(--c-text-muted);
+  font-size: var(--fs-xs);
+  text-align: center;
+}
+
+.screen {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-lg);
+  padding: var(--sp-5);
+  box-shadow: var(--shadow-sm);
+}
+
+.screen__header {
+  margin-bottom: var(--sp-4);
+}
+
+.screen__lead {
+  color: var(--c-text-muted);
+  font-size: var(--fs-lg);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+  align-items: center;
+}
+
+.grid-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--sp-3);
+}
+
+/* --- Buttons ------------------------------------------------------------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  min-height: var(--touch-min);
+  min-width: var(--touch-min);
+  padding: var(--sp-2) var(--sp-4);
+  border-radius: var(--radius);
+  border: 2px solid transparent;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn--primary {
+  background: var(--c-primary);
+  color: var(--c-text-inverse);
+}
+
+.btn--primary:hover:not(:disabled),
+.btn--primary:active:not(:disabled) {
+  background: var(--c-primary-strong);
+}
+
+.btn--secondary {
+  background: var(--c-surface);
+  color: var(--c-primary-strong);
+  border-color: var(--c-primary);
+}
+
+.btn--ghost {
+  background: transparent;
+  color: var(--c-text);
+  border-color: var(--c-border-strong);
+}
+
+.btn--danger {
+  background: var(--c-error);
+  color: var(--c-text-inverse);
+}
+
+.btn--large {
+  min-height: 72px;
+  font-size: var(--fs-lg);
+  padding: var(--sp-3) var(--sp-5);
+}
+
+.btn--block {
+  width: 100%;
+}
+
+.btn--header {
+  background: rgba(255, 255, 255, 0.14);
+  color: var(--c-text-inverse);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+/* --- Big touch tiles ----------------------------------------------------- */
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  min-height: 150px;
+  padding: var(--sp-4);
+  text-align: start;
+  background: var(--c-surface);
+  border: 2px solid var(--c-border);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.tile:hover,
+.tile[aria-pressed='true'],
+.tile[aria-current='true'] {
+  border-color: var(--c-primary);
+  background: var(--c-primary-soft);
+}
+
+.tile__title {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+}
+
+.tile__hint {
+  color: var(--c-text-muted);
+  font-size: var(--fs-sm);
+}
+
+/* --- Forms --------------------------------------------------------------- */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.field__label {
+  font-weight: 700;
+  font-size: var(--fs-base);
+}
+
+.field__hint {
+  color: var(--c-text-muted);
+  font-size: var(--fs-sm);
+}
+
+.field__error {
+  color: var(--c-error);
+  font-weight: 600;
+  font-size: var(--fs-sm);
+}
+
+.input,
+.textarea,
+.select {
+  width: 100%;
+  min-height: var(--touch-min);
+  padding: var(--sp-2) var(--sp-3);
+  font: inherit;
+  color: var(--c-text);
+  background: var(--c-surface);
+  border: 2px solid var(--c-border-strong);
+  border-radius: var(--radius);
+}
+
+.textarea {
+  min-height: 160px;
+  resize: vertical;
+}
+
+.input[aria-invalid='true'],
+.textarea[aria-invalid='true'] {
+  border-color: var(--c-error);
+  background: var(--c-error-bg);
+}
+
+.input--code {
+  font-size: var(--fs-2xl);
+  letter-spacing: 0.5em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.input--reference {
+  font-size: var(--fs-xl);
+  text-align: center;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* --- Status pill --------------------------------------------------------- */
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-1) var(--sp-3);
+  border-radius: 999px;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  border: 2px solid currentColor;
+}
+
+.status::before {
+  content: '';
+  width: 0.65em;
+  height: 0.65em;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.status--PENDING,
+.status--RECEIVED {
+  color: var(--c-pending);
+  background: var(--c-pending-bg);
+}
+.status--IN_PROGRESS,
+.status--UNDER_REVIEW {
+  color: var(--c-progress);
+  background: var(--c-progress-bg);
+}
+.status--NEED_INFO,
+.status--ACTION_REQUIRED {
+  color: var(--c-needinfo);
+  background: var(--c-needinfo-bg);
+}
+.status--APPROVED {
+  color: var(--c-approved);
+  background: var(--c-approved-bg);
+}
+.status--REJECTED {
+  color: var(--c-rejected);
+  background: var(--c-rejected-bg);
+}
+.status--CLOSED {
+  color: var(--c-text-muted);
+  background: var(--c-surface-alt);
+}
+
+/* --- Panels -------------------------------------------------------------- */
+
+.panel {
+  padding: var(--sp-3);
+  border: 2px solid var(--c-border);
+  border-radius: var(--radius);
+  background: var(--c-surface-alt);
+}
+
+.panel--error {
+  border-color: var(--c-error);
+  background: var(--c-error-bg);
+  color: var(--c-error);
+}
+
+.panel--info {
+  border-color: var(--c-primary);
+  background: var(--c-primary-soft);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+}
+
+.card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+  color: var(--c-text-muted);
+  font-size: var(--fs-sm);
+}
+
+.reference {
+  font-family: 'Courier New', monospace;
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+/* --- Timeline ------------------------------------------------------------ */
+
+.timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.timeline__item {
+  padding-inline-start: var(--sp-4);
+  border-inline-start: 4px solid var(--c-primary);
+}
+
+.timeline__when {
+  color: var(--c-text-muted);
+  font-size: var(--fs-sm);
+}
+
+/* --- Stepper ------------------------------------------------------------- */
+
+.stepper {
+  display: flex;
+  gap: var(--sp-2);
+  list-style: none;
+  margin: 0 0 var(--sp-4);
+  padding: 0;
+  flex-wrap: wrap;
+}
+
+.stepper__item {
+  flex: 1 1 180px;
+  padding: var(--sp-2);
+  border-radius: var(--radius);
+  border: 2px solid var(--c-border);
+  background: var(--c-surface-alt);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--c-text-muted);
+}
+
+.stepper__item[aria-current='step'] {
+  border-color: var(--c-primary);
+  background: var(--c-primary-soft);
+  color: var(--c-primary-strong);
+}
+
+.stepper__item--done {
+  border-color: var(--c-approved);
+  color: var(--c-approved);
+}
+
+/* --- Dialog -------------------------------------------------------------- */
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  padding: var(--sp-4);
+  background: rgba(16, 32, 27, 0.6);
+}
+
+.dialog {
+  width: min(560px, 100%);
+  padding: var(--sp-5);
+  background: var(--c-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}
+
+.dialog__title {
+  font-size: var(--fs-xl);
+}
+
+.dialog__body {
+  font-size: var(--fs-lg);
+}
+
+.dialog__actions {
+  display: flex;
+  gap: var(--sp-3);
+  margin-top: var(--sp-4);
+  flex-wrap: wrap;
+}
+
+/* --- Virtual keyboard ---------------------------------------------------- */
+
+.keyboard {
+  position: sticky;
+  bottom: 0;
+  margin-top: var(--sp-3);
+  padding: var(--sp-2);
+  background: var(--c-surface-alt);
+  border: 2px solid var(--c-border);
+  border-radius: var(--radius);
+}
+
+.keyboard__row {
+  display: flex;
+  gap: var(--sp-1);
+  justify-content: center;
+  margin-bottom: var(--sp-1);
+}
+
+.keyboard__key {
+  min-width: 52px;
+  min-height: var(--touch-min);
+  padding: var(--sp-1) var(--sp-2);
+  font: inherit;
+  font-weight: 600;
+  background: var(--c-surface);
+  border: 2px solid var(--c-border-strong);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.keyboard__key:active {
+  background: var(--c-primary-soft);
+}
+
+.keyboard__key--wide {
+  min-width: 120px;
+}
+
+/* --- Spinner ------------------------------------------------------------- */
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid var(--c-border);
+  border-top-color: var(--c-primary);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Respect a citizen who has asked the system for reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* --- Kiosk screen sizes -------------------------------------------------- */
+
+/* Portrait kiosk (1080x1920 and similar) */
+@media (max-width: 1200px) and (orientation: portrait) {
+  .app__main {
+    max-width: 900px;
+  }
+  :root {
+    --fs-base: 1.375rem;
+    --fs-2xl: 3rem;
+  }
+}
+
+/* Small tablet fallback */
+@media (max-width: 640px) {
+  .app__main {
+    padding: var(--sp-3);
+  }
+  .screen {
+    padding: var(--sp-3);
+  }
+  :root {
+    --fs-2xl: 2rem;
+    --fs-xl: 1.5rem;
+  }
+}

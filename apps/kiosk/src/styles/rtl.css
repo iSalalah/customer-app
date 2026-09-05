@@ -1,0 +1,36 @@
+/*
+ * RTL support.
+ *
+ * Layout uses logical properties (inline-start / inline-end, margin-inline)
+ * throughout, so direction switching needs almost no overrides. What remains
+ * here are the cases where a physical direction is genuinely meant.
+ */
+
+html[dir='rtl'] .reference,
+html[dir='rtl'] .input--reference,
+html[dir='rtl'] .input--code {
+  /* Reference numbers and OTP codes are Latin/numeric tokens: they must read
+     left-to-right even inside an Arabic paragraph. */
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+html[dir='rtl'] input[type='tel'],
+html[dir='rtl'] input[type='date'] {
+  direction: ltr;
+  text-align: right;
+}
+
+html[dir='ltr'] input[type='tel'] {
+  text-align: left;
+}
+
+/* Numerals stay Latin in both languages so a printed reference matches what is
+   typed on the tracking screen. */
+html[dir='rtl'] {
+  font-feature-settings: 'lnum' 1;
+}
+
+html[dir='rtl'] .spinner {
+  animation-direction: reverse;
+}

@@ -1,0 +1,394 @@
+// Dhofar Municipality Self-Service Citizen Portal
+// Datasource: MySQL 8. All timestamps are stored in UTC.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+  // Used only by `prisma migrate dev` when authoring a migration. Pointing at a
+  // pre-created database keeps the CREATE DATABASE privilege off the runtime
+  // account; `prisma migrate deploy` never touches it.
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum StaffRole {
+  MANAGER
+  SECTION_HEAD
+  EMPLOYEE
+}
+
+enum RequestStatus {
+  PENDING
+  IN_PROGRESS
+  NEED_INFO
+  APPROVED
+  REJECTED
+}
+
+enum LogVisibility {
+  INTERNAL
+  CITIZEN_VISIBLE
+}
+
+enum LogActorType {
+  CITIZEN
+  STAFF
+  SYSTEM
+}
+
+enum RequestLogAction {
+  CREATED
+  AUTO_ROUTED
+  ASSIGNED
+  REASSIGNED
+  STATUS_CHANGED
+  INTERNAL_NOTE_ADDED
+  CITIZEN_VISIBLE_NOTE_ADDED
+  CITIZEN_REPLIED
+  ATTACHMENT_ADDED
+  ATTACHMENT_REJECTED
+}
+
+enum AttachmentStorageProvider {
+  LOCAL
+  S3
+}
+
+// Added beyond the specified minimum: section 13 requires quarantine-until-scanned,
+// which cannot be represented without a scan state column.
+enum AttachmentScanStatus {
+  PENDING
+  CLEAN
+  INFECTED
+  SKIPPED
+}
+
+enum AuthActorType {
+  CITIZEN
+  STAFF
+}
+
+enum AuthEventType {
+  STAFF_LOGIN_SUCCESS
+  STAFF_LOGIN_FAILURE
+  STAFF_LOGIN_LOCKED
+  STAFF_LOGOUT
+  STAFF_REFRESH_SUCCESS
+  STAFF_REFRESH_REUSE_DETECTED
+  CITIZEN_OTP_REQUESTED
+  CITIZEN_OTP_VERIFY_SUCCESS
+  CITIZEN_OTP_VERIFY_FAILURE
+  CITIZEN_LOGOUT
+  CITIZEN_SESSION_EXPIRED
+}
+
+// ---------------------------------------------------------------------------
+// Organisation
+// ---------------------------------------------------------------------------
+
+model Department {
+  id        String   @id @default(uuid()) @db.Char(36)
+  nameAr    String   @db.VarChar(160)
+  nameEn    String   @db.VarChar(160)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  updatedAt DateTime @updatedAt @db.DateTime(3)
+
+  sections Section[]
+  services MunicipalService[]
+  staff    Staff[]
+  requests Request[]
+
+  @@unique([nameAr])
+  @@unique([nameEn])
+  @@index([isActive])
+  @@map("departments")
+}
+
+model Section {
+  id           String   @id @default(uuid()) @db.Char(36)
+  departmentId String   @db.Char(36)
+  nameAr       String   @db.VarChar(160)
+  nameEn       String   @db.VarChar(160)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now()) @db.DateTime(3)
+  updatedAt    DateTime @updatedAt @db.DateTime(3)
+
+  department Department         @relation(fields: [departmentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  staff      Staff[]
+  services   MunicipalService[]
+  requests   Request[]
+
+  @@unique([departmentId, nameAr])
+  @@unique([departmentId, nameEn])
+  @@index([departmentId, isActive])
+  @@map("sections")
+}
+
+model MunicipalService {
+  id                  String   @id @default(uuid()) @db.Char(36)
+  departmentId        String   @db.Char(36)
+  sectionId           String?  @db.Char(36)
+  nameAr              String   @db.VarChar(200)
+  nameEn              String   @db.VarChar(200)
+  descriptionAr       String?  @db.VarChar(1000)
+  descriptionEn       String?  @db.VarChar(1000)
+  // Attachment policy, per service.
+  attachmentsRequired Boolean  @default(false)
+  minAttachments      Int      @default(0) @db.SmallInt
+  maxAttachments      Int      @default(5) @db.SmallInt
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now()) @db.DateTime(3)
+  updatedAt           DateTime @updatedAt @db.DateTime(3)
+
+  department Department @relation(fields: [departmentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  section    Section?   @relation(fields: [sectionId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  requests   Request[]
+
+  @@unique([departmentId, nameAr])
+  @@unique([departmentId, nameEn])
+  @@index([departmentId, isActive])
+  @@index([sectionId])
+  @@map("municipal_services")
+}
+
+// ---------------------------------------------------------------------------
+// Actors
+// ---------------------------------------------------------------------------
+
+model Staff {
+  id           String    @id @default(uuid()) @db.Char(36)
+  nameAr       String    @db.VarChar(160)
+  nameEn       String?   @db.VarChar(160)
+  username     String    @unique @db.VarChar(64)
+  passwordHash String    @db.VarChar(255)
+  role         StaffRole
+  departmentId String    @db.Char(36)
+  sectionId    String?   @db.Char(36)
+  isActive     Boolean   @default(true)
+  // Login throttling / temporary lockout.
+  failedLoginCount Int       @default(0) @db.SmallInt
+  lockedUntil      DateTime? @db.DateTime(3)
+  lastLoginAt      DateTime? @db.DateTime(3)
+  createdAt        DateTime  @default(now()) @db.DateTime(3)
+  updatedAt        DateTime  @updatedAt @db.DateTime(3)
+
+  department       Department     @relation(fields: [departmentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  section          Section?       @relation(fields: [sectionId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  sessions         StaffSession[]
+  assignedRequests Request[]      @relation("RequestAssignee")
+  logs             RequestLog[]
+
+  @@index([departmentId, sectionId, isActive])
+  @@index([role, isActive])
+  @@map("staff")
+}
+
+model StaffSession {
+  id      String @id @default(uuid()) @db.Char(36)
+  staffId String @db.Char(36)
+  // SHA-256 of the opaque refresh token. The raw token is never stored.
+  tokenHash String @unique @db.Char(64)
+  // Rotation family: reuse of a rotated token revokes the whole family.
+  familyId  String    @db.Char(36)
+  userAgent String?   @db.VarChar(255)
+  ipAddress String?   @db.VarChar(64)
+  expiresAt DateTime  @db.DateTime(3)
+  revokedAt DateTime? @db.DateTime(3)
+  rotatedAt DateTime? @db.DateTime(3)
+  createdAt DateTime  @default(now()) @db.DateTime(3)
+
+  staff Staff @relation(fields: [staffId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([staffId, revokedAt])
+  @@index([familyId])
+  @@index([expiresAt])
+  @@map("staff_sessions")
+}
+
+model Citizen {
+  id String @id @default(uuid()) @db.Char(36)
+  // Normalised E.164, e.g. +96891234567
+  phoneNumber String @unique @db.VarChar(20)
+  // AES-256-GCM ciphertext. Never returned by any API.
+  civilIdEncrypted String? @db.VarChar(512)
+  // HMAC-SHA256 under CIVIL_ID_PEPPER, for uniqueness without plaintext.
+  civilIdHash String?  @unique @db.Char(64)
+  fullName    String?  @db.VarChar(160)
+  createdAt   DateTime @default(now()) @db.DateTime(3)
+  updatedAt   DateTime @updatedAt @db.DateTime(3)
+
+  sessions CitizenSession[]
+  requests Request[]
+  logs     RequestLog[]
+
+  @@index([createdAt])
+  @@map("citizens")
+}
+
+model CitizenSession {
+  id        String  @id @default(uuid()) @db.Char(36)
+  citizenId String  @db.Char(36)
+  tokenHash String  @unique @db.Char(64)
+  kioskId   String? @db.VarChar(64)
+  ipAddress String? @db.VarChar(64)
+  // Sliding idle clock; absoluteExpiresAt never moves.
+  lastSeenAt        DateTime  @db.DateTime(3)
+  idleExpiresAt     DateTime  @db.DateTime(3)
+  absoluteExpiresAt DateTime  @db.DateTime(3)
+  revokedAt         DateTime? @db.DateTime(3)
+  createdAt         DateTime  @default(now()) @db.DateTime(3)
+
+  citizen Citizen @relation(fields: [citizenId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([citizenId, revokedAt])
+  @@index([idleExpiresAt])
+  @@index([absoluteExpiresAt])
+  @@map("citizen_sessions")
+}
+
+model OtpChallenge {
+  id          String @id @default(uuid()) @db.Char(36)
+  phoneNumber String @db.VarChar(20)
+  // HMAC-SHA256(code, OTP_PEPPER). The code itself is never persisted or logged.
+  codeHash          String    @db.Char(64)
+  expiresAt         DateTime  @db.DateTime(3)
+  resendAvailableAt DateTime  @db.DateTime(3)
+  attemptCount      Int       @default(0) @db.SmallInt
+  maxAttempts       Int       @default(5) @db.SmallInt
+  consumedAt        DateTime? @db.DateTime(3)
+  // Set when superseded by a newer challenge for the same phone number.
+  invalidatedAt DateTime? @db.DateTime(3)
+  ipAddress     String?   @db.VarChar(64)
+  createdAt     DateTime  @default(now()) @db.DateTime(3)
+
+  @@index([phoneNumber, createdAt])
+  @@index([phoneNumber, consumedAt, invalidatedAt])
+  @@index([expiresAt])
+  @@map("otp_challenges")
+}
+
+// ---------------------------------------------------------------------------
+// Requests
+// ---------------------------------------------------------------------------
+
+model Request {
+  id              String @id @default(uuid()) @db.Char(36)
+  referenceNumber String @unique @db.VarChar(20)
+  idempotencyKey  String @db.VarChar(80)
+  citizenId       String @db.Char(36)
+  serviceId       String @db.Char(36)
+  // Copied from the service at creation time; scope must be immutable history.
+  departmentId String        @db.Char(36)
+  sectionId    String?       @db.Char(36)
+  assignedTo   String?       @db.Char(36)
+  title        String        @db.VarChar(200)
+  description  String        @db.Text
+  status       RequestStatus @default(PENDING)
+  createdAt    DateTime      @default(now()) @db.DateTime(3)
+  updatedAt    DateTime      @updatedAt @db.DateTime(3)
+
+  citizen    Citizen          @relation(fields: [citizenId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  service    MunicipalService @relation(fields: [serviceId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  department Department       @relation(fields: [departmentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  section    Section?         @relation(fields: [sectionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  assignee   Staff?           @relation("RequestAssignee", fields: [assignedTo], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  attachments Attachment[]
+  logs        RequestLog[]
+
+  // One submission per idempotency key per citizen.
+  @@unique([citizenId, idempotencyKey])
+  @@index([status, createdAt])
+  @@index([departmentId, status, createdAt])
+  @@index([sectionId, status, createdAt])
+  @@index([assignedTo, status, createdAt])
+  @@index([citizenId, createdAt])
+  @@index([serviceId])
+  @@index([createdAt])
+  @@map("requests")
+}
+
+model Attachment {
+  id        String @id @default(uuid()) @db.Char(36)
+  requestId String @db.Char(36)
+  // Sanitised display name. Never used to build a filesystem path.
+  originalFileName String                    @db.VarChar(255)
+  storageKey       String                    @unique @db.VarChar(255)
+  storageProvider  AttachmentStorageProvider @default(LOCAL)
+  mimeType         String                    @db.VarChar(100)
+  sizeBytes        Int
+  // SHA-256 of the bytes, hex.
+  checksum   String               @db.Char(64)
+  scanStatus AttachmentScanStatus @default(PENDING)
+  scannedAt  DateTime?            @db.DateTime(3)
+  // Who supplied it, for the citizen/staff attachment split.
+  uploadedByType LogActorType @default(CITIZEN)
+  uploadedById   String?      @db.Char(36)
+  createdAt      DateTime     @default(now()) @db.DateTime(3)
+
+  request Request @relation(fields: [requestId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([requestId])
+  @@index([checksum])
+  @@index([scanStatus])
+  @@map("attachments")
+}
+
+model RequestLog {
+  id             String           @id @default(uuid()) @db.Char(36)
+  requestId      String           @db.Char(36)
+  actorType      LogActorType
+  staffId        String?          @db.Char(36)
+  citizenId      String?          @db.Char(36)
+  action         RequestLogAction
+  previousStatus RequestStatus?
+  newStatus      RequestStatus?
+  visibility     LogVisibility    @default(INTERNAL)
+  notes          String?          @db.Text
+  // Immutable snapshot (actor display name, assignee id, file names, ...).
+  metadata  Json?
+  createdAt DateTime @default(now()) @db.DateTime(3)
+
+  request Request  @relation(fields: [requestId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  staff   Staff?   @relation(fields: [staffId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  citizen Citizen? @relation(fields: [citizenId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([requestId, createdAt])
+  @@index([requestId, visibility, createdAt])
+  @@index([staffId, createdAt])
+  @@index([action, createdAt])
+  @@map("request_logs")
+}
+
+// ---------------------------------------------------------------------------
+// Audit
+// ---------------------------------------------------------------------------
+
+model AuthenticationAudit {
+  id        String        @id @default(uuid()) @db.Char(36)
+  actorType AuthActorType
+  eventType AuthEventType
+  // No FK: failed logins must be recordable for identifiers that do not exist.
+  actorId String? @db.Char(36)
+  // Username, or a masked phone number. Never a raw OTP.
+  identifier String?  @db.VarChar(120)
+  success    Boolean
+  reason     String?  @db.VarChar(120)
+  ipAddress  String?  @db.VarChar(64)
+  userAgent  String?  @db.VarChar(255)
+  requestId  String?  @db.VarChar(64)
+  createdAt  DateTime @default(now()) @db.DateTime(3)
+
+  @@index([actorType, eventType, createdAt])
+  @@index([identifier, createdAt])
+  @@index([createdAt])
+  @@map("authentication_audits")
+}

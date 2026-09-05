@@ -1,0 +1,54 @@
+/*
+ * Print stylesheet for the kiosk receipt.
+ *
+ * Only the receipt is printable. Everything else - navigation, forms, other
+ * citizens' screens - is removed, so an accidental print cannot put personal
+ * data on the tray.
+ */
+@media print {
+  body {
+    background: #fff;
+    color: #000;
+    font-size: 12pt;
+  }
+
+  .app__header,
+  .app__footer,
+  .btn,
+  .keyboard,
+  .dialog-backdrop,
+  .skip-link,
+  .no-print {
+    display: none !important;
+  }
+
+  .app__main,
+  .screen {
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    border: none;
+    box-shadow: none;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  .reference {
+    font-size: 24pt;
+    letter-spacing: 0.15em;
+  }
+
+  .receipt__qr {
+    max-width: 200px;
+  }
+
+  @page {
+    margin: 12mm;
+  }
+}
+
+.print-only {
+  display: none;
+}

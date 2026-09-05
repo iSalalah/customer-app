@@ -1,0 +1,82 @@
+/*
+ * Design tokens.
+ *
+ * Colour pairs are chosen for WCAG 2.1 AA on a kiosk screen viewed at arm's
+ * length in daylight: body text is >= 7:1 against its background, and no
+ * interactive control relies on colour alone to convey its state.
+ */
+:root {
+  /* Brand */
+  --c-primary: #0b5c48;
+  --c-primary-strong: #084335;
+  --c-primary-soft: #e6f2ee;
+  --c-accent: #8a6d1f;
+
+  /* Surfaces */
+  --c-bg: #f4f6f5;
+  --c-surface: #ffffff;
+  --c-surface-alt: #eef1f0;
+
+  /* Text - 15.8:1 and 7.4:1 on --c-surface */
+  --c-text: #10201b;
+  --c-text-muted: #4a5a54;
+  --c-text-inverse: #ffffff;
+
+  /* Lines */
+  --c-border: #c3cdc9;
+  --c-border-strong: #8d9b96;
+
+  /* Status - each is paired with a text colour and an icon/label, never used alone */
+  --c-pending: #8a6d1f;
+  --c-pending-bg: #fdf5e0;
+  --c-progress: #1d4f8b;
+  --c-progress-bg: #e6eff9;
+  --c-needinfo: #9a4b06;
+  --c-needinfo-bg: #fdefe3;
+  --c-approved: #17663f;
+  --c-approved-bg: #e4f3ea;
+  --c-rejected: #97231f;
+  --c-rejected-bg: #fbe9e8;
+
+  /* Feedback */
+  --c-error: #97231f;
+  --c-error-bg: #fbe9e8;
+  --c-focus: #0a58ca;
+
+  /* Type scale - large by default; a kiosk is read standing up */
+  --fs-xs: 0.9375rem;
+  --fs-sm: 1.0625rem;
+  --fs-base: 1.25rem;
+  --fs-lg: 1.5rem;
+  --fs-xl: 2rem;
+  --fs-2xl: 2.75rem;
+
+  /* Spacing */
+  --sp-1: 0.375rem;
+  --sp-2: 0.75rem;
+  --sp-3: 1.125rem;
+  --sp-4: 1.5rem;
+  --sp-5: 2.25rem;
+  --sp-6: 3rem;
+
+  --radius: 12px;
+  --radius-lg: 20px;
+
+  /* Minimum touch target. Every interactive element inherits this. */
+  --touch-min: 56px;
+
+  --shadow-sm: 0 1px 3px rgba(16, 32, 27, 0.12);
+  --shadow-md: 0 6px 20px rgba(16, 32, 27, 0.16);
+
+  --font-ar: 'Noto Kufi Arabic', 'Segoe UI', 'Tahoma', system-ui, sans-serif;
+  --font-en: 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', sans-serif;
+}
+
+/* High-contrast preference: strengthen borders rather than change the palette. */
+@media (prefers-contrast: more) {
+  :root {
+    --c-border: #10201b;
+    --c-border-strong: #10201b;
+    --c-text-muted: #1c2d27;
+  }
+}

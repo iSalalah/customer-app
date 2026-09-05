@@ -1,0 +1,53 @@
+{
+  "name": "@dhofar/api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Express API for the Dhofar Municipality Self-Service Citizen Portal",
+  "main": "src/server.js",
+  "engines": { "node": ">=20.11 <23" },
+  "scripts": {
+    "dev": "node --watch --env-file=../../.env src/server.js",
+    "start": "node src/server.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "dotenv -e ../../.env -- prisma migrate dev",
+    "prisma:deploy": "prisma migrate deploy",
+    "prisma:seed": "dotenv -e ../../.env -- node prisma/seed.js",
+    "prisma:studio": "dotenv -e ../../.env -- prisma studio",
+    "test": "cross-env NODE_ENV=test node --experimental-vm-modules ../../node_modules/jest/bin/jest.js --runInBand",
+    "test:watch": "npm run test -- --watch",
+    "test:coverage": "npm run test -- --coverage",
+    "lint": "eslint src tests"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "3.1127.0",
+    "@dhofar/shared": "1.0.0",
+    "@prisma/client": "5.22.0",
+    "argon2": "0.41.1",
+    "cookie-parser": "1.4.7",
+    "cors": "2.8.5",
+    "express": "4.22.2",
+    "express-rate-limit": "7.4.1",
+    "file-type": "19.6.0",
+    "helmet": "8.0.0",
+    "ioredis": "5.4.1",
+    "multer": "2.3.0",
+    "pino": "9.5.0",
+    "pino-http": "10.3.0",
+    "rate-limit-redis": "4.2.0",
+    "swagger-ui-express": "5.0.1",
+    "uuid": "11.0.3",
+    "zod": "3.23.8"
+  },
+  "devDependencies": {
+    "cross-env": "7.0.3",
+    "dotenv-cli": "7.4.4",
+    "jest": "29.7.0",
+    "pino-pretty": "13.0.0",
+    "prisma": "5.22.0",
+    "supertest": "7.1.3"
+  }
+}

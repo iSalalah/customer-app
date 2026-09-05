@@ -1,0 +1,57 @@
+{
+  "root": true,
+  "env": { "es2023": true, "node": true },
+  "parserOptions": { "ecmaVersion": 2023, "sourceType": "module" },
+  "extends": ["eslint:recommended"],
+  "plugins": ["import"],
+  "rules": {
+    "no-unused-vars": ["error", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }],
+    "no-console": ["error", { "allow": ["warn", "error"] }],
+    "eqeqeq": ["error", "always"],
+    "no-var": "error",
+    "prefer-const": "error",
+    "object-shorthand": "error",
+    "no-return-await": "error",
+    "import/order": [
+      "warn",
+      {
+        "groups": ["builtin", "external", "internal", ["parent", "sibling", "index"]],
+        "newlines-between": "always-and-inside-groups"
+      }
+    ],
+    "import/no-extraneous-dependencies": "off"
+  },
+  "settings": {
+    "//": "@dhofar/* are workspace packages, not third-party ones; without this they sort as external.",
+    "import/internal-regex": "^@dhofar/"
+  },
+  "overrides": [
+    {
+      "files": ["apps/kiosk/src/**/*.jsx", "apps/kiosk/src/**/*.js", "apps/admin/src/**/*.jsx", "apps/admin/src/**/*.js"],
+      "env": { "browser": true, "node": false },
+      "parserOptions": { "ecmaFeatures": { "jsx": true } },
+      "extends": [
+        "eslint:recommended",
+        "plugin:react/recommended",
+        "plugin:react/jsx-runtime",
+        "plugin:react-hooks/recommended",
+        "plugin:jsx-a11y/recommended"
+      ],
+      "plugins": ["react", "react-hooks", "jsx-a11y"],
+      "settings": { "react": { "version": "18.3" } },
+      "rules": {
+        "react/prop-types": "off",
+        "no-console": ["error", { "allow": ["warn", "error"] }]
+      }
+    },
+    {
+      "files": ["apps/api/tests/**/*.js", "apps/api/jest.config.js"],
+      "env": { "jest": true, "node": true },
+      "rules": { "no-console": "off" }
+    },
+    {
+      "files": ["apps/api/prisma/seed.js", "apps/api/src/infra/logger.js"],
+      "rules": { "no-console": "off" }
+    }
+  ]
+}

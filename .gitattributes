@@ -1,0 +1,19 @@
+# Normalise line endings so the repository stores LF regardless of the platform
+# it was authored on. Without this, a Windows checkout commits CRLF and every
+# diff on Linux CI shows the whole file as changed.
+* text=auto eol=lf
+
+# Shell scripts must keep LF even on a Windows checkout, or they will not run
+# inside the Docker images.
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.Dockerfile text eol=lf
+
+# Binary assets git must not try to normalise.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+*.ico binary

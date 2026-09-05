@@ -1,0 +1,139 @@
+# Local development and evaluation stack.
+#
+# Production differences are documented in docs/08-deployment.md - in particular
+# the database and Redis ports below are published for developer convenience and
+# must NOT be exposed in production.
+
+name: dhofar-portal
+
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      # The application stores and compares every timestamp in UTC.
+      - --default-time-zone=+00:00
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD in .env}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-dhofar_portal}
+      MYSQL_USER: ${MYSQL_USER:-dhofar}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?set MYSQL_PASSWORD in .env}
+    ports:
+      - '127.0.0.1:3306:3306'
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', '127.0.0.1', '-u', 'root', '-p${MYSQL_ROOT_PASSWORD}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    # Persistence is on so that in-flight OTP cooldowns and rate-limit counters
+    # survive a restart; sessions are additionally mirrored in MySQL.
+    command: ['redis-server', '--appendonly', 'yes', '--maxmemory-policy', 'noeviction']
+    ports:
+      - '127.0.0.1:6379:6379'
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      API_PORT: 4000
+      API_HOST: 0.0.0.0
+      TRUST_PROXY: 1
+      DATABASE_URL: mysql://${MYSQL_USER:-dhofar}:${MYSQL_PASSWORD}@mysql:3306/${MYSQL_DATABASE:-dhofar_portal}?connection_limit=10&timezone=UTC
+      REDIS_URL: redis://redis:6379
+      REDIS_KEY_PREFIX: ${REDIS_KEY_PREFIX:-dhofar:}
+      OTP_PEPPER: ${OTP_PEPPER:?set OTP_PEPPER in .env}
+      CIVIL_ID_PEPPER: ${CIVIL_ID_PEPPER:?set CIVIL_ID_PEPPER in .env}
+      CIVIL_ID_ENC_KEY: ${CIVIL_ID_ENC_KEY:?set CIVIL_ID_ENC_KEY in .env}
+      SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET in .env}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:5174}
+      PUBLIC_TRACKING_BASE_URL: ${PUBLIC_TRACKING_BASE_URL:-http://localhost:5173/track}
+      STORAGE_DRIVER: ${STORAGE_DRIVER:-local}
+      STORAGE_LOCAL_ROOT: ./var/uploads
+      SMS_DRIVER: ${SMS_DRIVER:-mock}
+      MALWARE_SCAN_ENABLED: ${MALWARE_SCAN_ENABLED:-false}
+      SWAGGER_ENABLED: ${SWAGGER_ENABLED:-true}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    ports:
+      - '4000:4000'
+    volumes:
+      # Citizen documents live on a named volume, outside every web root and
+      # outside the image.
+      - uploads-data:/app/apps/api/var/uploads
+
+  kiosk:
+    build:
+      context: .
+      dockerfile: docker/kiosk.Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:4000/api/v1}
+        VITE_DEFAULT_LOCALE: ${VITE_DEFAULT_LOCALE:-ar}
+        VITE_IDLE_TIMEOUT_SECONDS: ${CITIZEN_IDLE_TIMEOUT_SECONDS:-120}
+        VITE_IDLE_WARNING_SECONDS: ${CITIZEN_IDLE_WARNING_SECONDS:-30}
+        VITE_KIOSK_ID: ${VITE_KIOSK_ID:-KIOSK-DEV-01}
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - '5173:80'
+
+  admin:
+    build:
+      context: .
+      dockerfile: docker/admin.Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:4000/api/v1}
+        VITE_DEFAULT_LOCALE: ${VITE_DEFAULT_LOCALE:-ar}
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - '5174:80'
+
+  # Optional. Enable with:  docker compose --profile scanning up -d
+  # Production requires MALWARE_SCAN_ENABLED=true, which requires this service.
+  clamav:
+    image: clamav/clamav:1.4
+    profiles: ['scanning']
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:3310:3310'
+    volumes:
+      - clamav-data:/var/lib/clamav
+    healthcheck:
+      test: ['CMD', 'clamdcheck.sh']
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+
+volumes:
+  mysql-data:
+  redis-data:
+  uploads-data:
+  clamav-data:

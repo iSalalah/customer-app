@@ -1,0 +1,45 @@
+{
+  "name": "dhofar-citizen-portal",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Dhofar Municipality Self-Service Citizen Portal - kiosk and staff dashboard",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=20.11 <23",
+    "npm": ">=10"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm-run-all --parallel dev:api dev:kiosk dev:admin",
+    "dev:api": "npm run dev --workspace @dhofar/api",
+    "dev:kiosk": "npm run dev --workspace @dhofar/kiosk",
+    "dev:admin": "npm run dev --workspace @dhofar/admin",
+    "build": "npm run build --workspace @dhofar/kiosk && npm run build --workspace @dhofar/admin",
+    "test": "npm run test --workspace @dhofar/api",
+    "test:watch": "npm run test:watch --workspace @dhofar/api",
+    "lint": "eslint \"packages/**/src/**/*.{js,jsx}\" \"apps/**/src/**/*.{js,jsx}\" \"apps/api/tests/**/*.js\"",
+    "lint:fix": "npm run lint -- --fix",
+    "prisma:generate": "npm run prisma:generate --workspace @dhofar/api",
+    "prisma:migrate": "npm run prisma:migrate --workspace @dhofar/api",
+    "prisma:deploy": "npm run prisma:deploy --workspace @dhofar/api",
+    "prisma:seed": "npm run prisma:seed --workspace @dhofar/api",
+    "prisma:studio": "npm run prisma:studio --workspace @dhofar/api",
+    "audit:deps": "npm audit --omit=dev --audit-level=high",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f api"
+  },
+  "devDependencies": {
+    "eslint": "8.57.1",
+    "eslint-plugin-import": "2.31.0",
+    "eslint-plugin-jsx-a11y": "6.10.2",
+    "eslint-plugin-react": "7.37.2",
+    "eslint-plugin-react-hooks": "4.6.2",
+    "npm-run-all": "4.1.5",
+    "prettier": "3.4.2"
+  }
+}

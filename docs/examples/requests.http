@@ -1,0 +1,206 @@
+### Dhofar Municipality Portal - example requests
+### Works with the VS Code REST Client and JetBrains HTTP Client.
+###
+### Cookie handling: both clients keep cookies between requests in a file, so the
+### session flows below work as written. The CSRF token is readable by design -
+### copy it from the dm.csrf cookie into X-CSRF-Token on every mutating call.
+
+@host = http://localhost:4000/api/v1
+@csrf = PASTE_THE_dm.csrf_COOKIE_VALUE_HERE
+@phone = 91234567
+@reference = DHO-2026-A7K2M9
+
+### ---------------------------------------------------------------- health ---
+
+GET {{host}}/health
+
+###
+
+GET {{host}}/ready
+
+### --------------------------------------------------------------- catalog ---
+
+GET {{host}}/departments
+
+### Copy a department id from the response above.
+@departmentId = PASTE_DEPARTMENT_ID
+
+GET {{host}}/departments/{{departmentId}}/services
+
+### -------------------------------------------------- public tracking (no auth)
+
+### Returns four fields only: reference, coarse status, submitted, last updated.
+### Rate limited to 10 lookups per 5 minutes per IP.
+GET {{host}}/public/requests/{{reference}}/status
+
+### ---------------------------------------------------- citizen: sign in ------
+
+### Always answers 202, whether or not the citizen exists.
+### With NODE_ENV=development the code is printed to the API console.
+POST {{host}}/auth/citizen/otp/request
+Content-Type: application/json
+X-CSRF-Token: {{csrf}}
+
+{
+  "phoneNumber": "{{phone}}"
+}
+
+### Only after the 60-second cooldown.
+POST {{host}}/auth/citizen/otp/resend
+Content-Type: application/json
+X-CSRF-Token: {{csrf}}
+
+{
+  "phoneNumber": "{{phone}}"
+}
+
+### Sets the dm.cs session cookie. Five attempts, then the challenge is dead.
+POST {{host}}/auth/citizen/otp/verify
+Content-Type: application/json
+X-CSRF-Token: {{csrf}}
+
+{
+  "phoneNumber": "{{phone}}",
+  "code": "123456"
+}
+
+### Remaining idle time comes from the server, not the browser.
+GET {{host}}/auth/citizen/me
+
+### -------------------------------------------------- citizen: requests -------
+
+GET {{host}}/citizen/requests?page=1&pageSize=20&status=PENDING
+
+### Idempotency-Key is required. Replaying it returns the ORIGINAL reference
+### with 200 instead of creating a second request.
+### Note what is absent from the body: departmentId and sectionId. Sending them
+### is a 400 - routing comes from the service record.
+POST {{host}}/citizen/requests
+X-CSRF-Token: {{csrf}}
+Idempotency-Key: submission-2026-09-05-0001
+Content-Type: multipart/form-data; boundary=----Boundary
+
+------Boundary
+Content-Disposition: form-data; name="serviceId"
+
+PASTE_SERVICE_ID
+------Boundary
+Content-Disposition: form-data; name="title"
+
+Broken street light on Al Nahda street
+------Boundary
+Content-Disposition: form-data; name="description"
+
+The street light outside building 42 has been out for a week and the road is dark at night.
+------Boundary
+Content-Disposition: form-data; name="attachments"; filename="photo.jpg"
+Content-Type: image/jpeg
+
+< ./photo.jpg
+------Boundary--
+
+###
+
+GET {{host}}/citizen/requests/{{reference}}
+
+### Only accepted while the status is NEED_INFO.
+POST {{host}}/citizen/requests/{{reference}}/replies
+X-CSRF-Token: {{csrf}}
+Content-Type: multipart/form-data; boundary=----Boundary
+
+------Boundary
+Content-Disposition: form-data; name="message"
+
+I have attached the ownership document you asked for.
+------Boundary--
+
+###
+
+POST {{host}}/auth/citizen/logout
+X-CSRF-Token: {{csrf}}
+
+### ------------------------------------------------------ staff: sign in ------
+
+### Development password for every seeded account.
+POST {{host}}/auth/staff/login
+Content-Type: application/json
+X-CSRF-Token: {{csrf}}
+
+{
+  "username": "manager.planning",
+  "password": "Dhofar#Dev2026"
+}
+
+###
+
+GET {{host}}/auth/staff/me
+
+### Rotates the refresh token. Replaying a rotated one revokes the whole family.
+POST {{host}}/auth/staff/refresh
+X-CSRF-Token: {{csrf}}
+
+### -------------------------------------------------- staff: operations -------
+
+### Filters are intersected with the caller's scope: they can narrow it, never widen it.
+GET {{host}}/staff/requests?page=1&pageSize=20&status=PENDING&sort=-createdAt
+
+###
+
+@requestId = PASTE_REQUEST_ID
+
+GET {{host}}/staff/requests/{{requestId}}
+
+###
+
+GET {{host}}/staff/requests/{{requestId}}/logs?page=1&pageSize=50
+
+### MANAGER and SECTION_HEAD only. The assignee must be active, in the request's
+### department, and in its section when it has one.
+PATCH {{host}}/staff/requests/{{requestId}}/assignment
+Content-Type: application/json
+X-CSRF-Token: {{csrf}}
+
+{
+  "assignedTo": "PASTE_STAFF_ID"
+}
+
+### Pass null to unassign.
+PATCH {{host}}/staff/requests/{{requestId}}/assignment
+Content-Type: application/json
+X-CSRF-Token: {{csrf}}
+
+{
+  "assignedTo": null
+}
+
+### Moving to NEED_INFO requires a CITIZEN_VISIBLE note.
+PATCH {{host}}/staff/requests/{{requestId}}/status
+Content-Type: application/json
+X-CSRF-Token: {{csrf}}
+
+{
+  "status": "NEED_INFO",
+  "note": "Please attach the land ownership document.",
+  "noteVisibility": "CITIZEN_VISIBLE"
+}
+
+### An INTERNAL note is never returned by any citizen endpoint.
+POST {{host}}/staff/requests/{{requestId}}/notes
+Content-Type: application/json
+X-CSRF-Token: {{csrf}}
+
+{
+  "message": "Applicant has a prior application under review in the archive.",
+  "visibility": "INTERNAL"
+}
+
+### Scope is derived from the caller's role. There is no scope parameter.
+GET {{host}}/staff/analytics/summary
+
+###
+
+POST {{host}}/auth/staff/logout
+Content-Type: application/json
+X-CSRF-Token: {{csrf}}
+
+{}
