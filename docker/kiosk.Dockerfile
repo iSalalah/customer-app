@@ -32,6 +32,7 @@ RUN npm run build --workspace @dhofar/kiosk
 # ---- Runtime stage ----------------------------------------------------------
 FROM nginx:1.27-alpine AS runtime
 
+COPY docker/nginx-security-headers.conf /etc/nginx/snippets/security-headers.conf
 COPY docker/nginx-spa.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/apps/kiosk/dist /usr/share/nginx/html
 

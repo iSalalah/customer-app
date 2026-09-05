@@ -1,0 +1,119 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Lint, test and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    # The integration suites talk to a real MySQL and a real Redis - they are
+    # not mocked, because the behaviour under test (transactions, unique
+    # constraints, session expiry, rate limits) only exists in the real thing.
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: ci_root_password
+          MYSQL_DATABASE: dhofar_portal_test
+          MYSQL_USER: dhofar
+          MYSQL_PASSWORD: ci_password
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -u root -pci_root_password"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=15
+
+      redis:
+        image: redis:7.4-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      # The test harness refuses any database whose name does not end in _test.
+      TEST_DATABASE_URL: mysql://dhofar:ci_password@127.0.0.1:3306/dhofar_portal_test?timezone=UTC
+      TEST_REDIS_URL: redis://127.0.0.1:6379/1
+      DATABASE_URL: mysql://dhofar:ci_password@127.0.0.1:3306/dhofar_portal_test?timezone=UTC
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate the Prisma client
+        run: npx prisma generate --schema apps/api/prisma/schema.prisma
+
+      - name: Apply migrations to the test database
+        run: npx prisma migrate deploy --schema apps/api/prisma/schema.prisma
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test (unit and integration)
+        run: npm test
+
+      - name: Build both applications
+        run: npm run build
+
+      # Fails the build on a known high or critical advisory in anything that
+      # ships. Development-only dependencies are excluded deliberately.
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+  guard-secrets:
+    name: No secrets in the tree
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      # A file such as `.test-env` holding a real database URL once reached the
+      # staging area during development. This job is the standing guard.
+      - name: Refuse any committed environment file
+        run: |
+          set -euo pipefail
+          found=$(git ls-files \
+            | grep -iE '(^|/)\.?[^/]*env[^/]*$' \
+            | grep -vE '\.env\.example$' \
+            | grep -vE '^apps/api/src/config/env\.js$' \
+            | grep -vE '^apps/api/tests/setup/env\.js$' || true)
+          if [ -n "$found" ]; then
+            echo "::error::These files look like environment files and must not be committed:"
+            echo "$found"
+            exit 1
+          fi
+          echo "No environment files are committed."
+
+      - name: Refuse a credential embedded in a tracked file
+        run: |
+          set -euo pipefail
+          # A mysql:// URL carrying a password that is not an obvious placeholder.
+          hits=$(git grep -nIE 'mysql://[^:@/]+:[^@/${}]{8,}@' -- . \
+            | grep -viE 'YOUR_PASSWORD|CHANGE_ME|ci_password|example|placeholder' || true)
+          if [ -n "$hits" ]; then
+            echo "::error::A database URL with an embedded password is committed:"
+            echo "$hits"
+            exit 1
+          fi
+          echo "No embedded database credentials found."
