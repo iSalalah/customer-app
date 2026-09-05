@@ -52,9 +52,17 @@ export function getTestRedis() {
 }
 
 /**
- * Truncation order follows the foreign keys: children first. Truncate is used
- * rather than a transaction rollback because the API opens its own transactions
- * through a separate client.
+ * Deletion order follows the foreign keys: children first. A plain DELETE is
+ * used rather than TRUNCATE, and the foreign keys stay ENABLED.
+ *
+ * The earlier version disabled them with `SET FOREIGN_KEY_CHECKS = 0` before
+ * truncating. That is a **session** variable, and Prisma runs statements over a
+ * connection pool - so the SET and the TRUNCATE could land on different
+ * connections, leaving the checks on for the truncate. It passed locally, where
+ * the pool happened to reuse one connection, and failed on CI, where it did not.
+ *
+ * Ordering the deletes correctly removes the need for the flag altogether, and
+ * the ordering is verified against the live schema by `assertCoversAllTables`.
  */
 const TABLES_IN_DELETE_ORDER = [
   'request_logs',
@@ -71,13 +79,42 @@ const TABLES_IN_DELETE_ORDER = [
   'departments',
 ];
 
+let tableCoverageChecked = false;
+
+/**
+ * Fails loudly if the schema gains a table that the reset list does not clear.
+ * Without this, a new table would silently leak rows between suites and produce
+ * failures far away from the cause.
+ */
+async function assertCoversAllTables(client) {
+  if (tableCoverageChecked) return;
+  tableCoverageChecked = true;
+
+  const rows = await client.$queryRawUnsafe(
+    `SELECT TABLE_NAME AS name FROM information_schema.TABLES
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_TYPE = 'BASE TABLE'`,
+  );
+
+  const known = new Set([...TABLES_IN_DELETE_ORDER, '_prisma_migrations']);
+  const missing = rows.map((row) => row.name).filter((name) => !known.has(name));
+
+  if (missing.length > 0) {
+    throw new Error(
+      `tests/setup/db.js does not reset these tables: ${missing.join(', ')}. ` +
+        'Add them to TABLES_IN_DELETE_ORDER, children before parents.',
+    );
+  }
+}
+
 export async function resetDatabase() {
   const client = getTestPrisma();
-  await client.$executeRawUnsafe('SET FOREIGN_KEY_CHECKS = 0');
-  for (const table of TABLES_IN_DELETE_ORDER) {
-    await client.$executeRawUnsafe(`TRUNCATE TABLE \`${table}\``);
-  }
-  await client.$executeRawUnsafe('SET FOREIGN_KEY_CHECKS = 1');
+  await assertCoversAllTables(client);
+
+  // One transaction, therefore one connection - and the child-before-parent
+  // order means the foreign keys never need to be disabled.
+  await client.$transaction(
+    TABLES_IN_DELETE_ORDER.map((table) => client.$executeRawUnsafe(`DELETE FROM \`${table}\``)),
+  );
 }
 
 export async function resetRedis() {
